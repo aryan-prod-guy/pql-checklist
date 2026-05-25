@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Product Quality Checklist · Commenda</title>
+  <meta name="description" content="Commenda's pre-release Product Quality Checklist (PQL) — run through this before shipping." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Commenda</span>
+      </div>
+      <h1>Product Quality Checklist</h1>
+      <p class="tagline">Run this before shipping. It takes ~10 minutes and saves the team hours of avoidable cleanup.</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Screen 1: Intro -->
+    <section id="screen-intro" class="screen is-active" aria-label="Start">
+      <form id="intro-form" class="card">
+        <h2>Get started</h2>
+        <p class="muted">Enter your name and the project you're shipping. Both are required.</p>
+        <label class="field">
+          <span class="field-label">Your name</span>
+          <input type="text" name="name" id="input-name" required autocomplete="name" placeholder="e.g. Aryan Kumar" />
+        </label>
+        <label class="field">
+          <span class="field-label">Project / release</span>
+          <input type="text" name="project" id="input-project" required placeholder="e.g. Use Tax — auto-allocations v2" />
+        </label>
+        <button type="submit" class="btn btn-primary">Start checklist →</button>
+      </form>
+    </section>
+
+    <!-- Screen 2: Checklist -->
+    <section id="screen-checklist" class="screen" aria-label="Checklist">
+      <div class="meta-bar">
+        <div>
+          <strong id="meta-name"></strong>
+          <span class="muted"> · </span>
+          <span id="meta-project"></span>
+        </div>
+        <button type="button" class="btn-link" id="btn-back-to-intro">Edit</button>
+      </div>
+
+      <div class="progress" aria-live="polite">
+        <div class="progress-text"><span id="progress-done">0</span> of <span id="progress-total">0</span> items reviewed</div>
+        <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      </div>
+
+      <form id="checklist-form">
+        <div id="sections-root"></div>
+
+        <div class="card sign-off">
+          <h2>PM sign-off</h2>
+          <p class="muted">Force accountability. Known issues are explicitly accepted or deferred. You're comfortable defending this release to a customer.</p>
+
+          <label class="field">
+            <span class="field-label">Known issues accepted / deferred</span>
+            <textarea name="known_issues" id="input-known-issues" rows="3" placeholder="List anything you're knowingly shipping with — or write 'none'."></textarea>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Decision</span>
+            <select name="decision" id="input-decision" required>
+              <option value="">Choose…</option>
+              <option value="Accepted">Accepted — ship it</option>
+              <option value="Deferred">Deferred — not ready yet</option>
+              <option value="Rejected">Rejected — needs rework</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Date</span>
+            <input type="date" name="date" id="input-date" required />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary btn-large">Submit checklist</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Screen 3: Summary -->
+    <section id="screen-summary" class="screen" aria-label="Summary">
+      <div class="summary-toolbar no-print">
+        <button type="button" class="btn" id="btn-copy">Copy as Markdown</button>
+        <button type="button" class="btn" id="btn-download">Download .md</button>
+        <button type="button" class="btn" id="btn-print">Print / Save as PDF</button>
+        <button type="button" class="btn btn-link" id="btn-new">Start new checklist</button>
+      </div>
+      <div id="summary-root" class="card summary-card"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer no-print">
+    <div class="container">
+      <span class="muted">Commenda · Product Quality Checklist</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
