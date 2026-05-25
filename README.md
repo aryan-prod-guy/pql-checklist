@@ -2,7 +2,7 @@
 
 A small static site for Commenda's pre-release Product Quality Checklist. PMs enter their name and project, walk through the 10 sections of the checklist, and submit — getting back a clean summary they can copy, download as Markdown, or print as a PDF.
 
-**Live:** https://commenda.github.io/pql-checklist/
+**Live:** https://aryan-prod-guy.github.io/pql-checklist/
 
 ## Stack
 
@@ -37,7 +37,7 @@ The site is already deployed via GitHub Pages from `main` / root. Push to `main`
 To re-enable Pages from scratch (e.g. after a fork):
 
 ```sh
-gh api -X POST repos/commenda/pql-checklist/pages -f 'source[branch]=main' -f 'source[path]=/'
+gh api -X POST repos/aryan-prod-guy/pql-checklist/pages -f 'source[branch]=main' -f 'source[path]=/'
 ```
 
 ## Why no backend
