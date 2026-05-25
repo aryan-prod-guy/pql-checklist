@@ -350,6 +350,234 @@ function buildMarkdown() {
   return lines.join("\n");
 }
 
+// ---- PDF export (jsPDF, loaded from CDN) ----
+const PDF_COLORS = {
+  text: [24, 24, 27],
+  muted: [107, 114, 128],
+  accent: [79, 70, 229],
+  border: [229, 231, 235],
+  good: [4, 120, 87],
+  goodBg: [236, 253, 245],
+  warn: [180, 83, 9],
+  warnBg: [255, 251, 235],
+  danger: [185, 28, 28],
+  dangerBg: [254, 242, 242],
+  pendingBg: [243, 244, 246],
+};
+const PILL_FOR_STATE = {
+  ok: { label: "OK", fg: PDF_COLORS.good, bg: PDF_COLORS.goodBg },
+  deferred: { label: "Deferred", fg: PDF_COLORS.warn, bg: PDF_COLORS.warnBg },
+  notok: { label: "Not OK", fg: PDF_COLORS.danger, bg: PDF_COLORS.dangerBg },
+  pending: { label: "Pending", fg: PDF_COLORS.muted, bg: PDF_COLORS.pendingBg },
+};
+
+function buildPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 18;
+  const contentW = pageW - margin * 2;
+  let y = margin;
+
+  const ensureSpace = (needed) => {
+    if (y + needed > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+  };
+
+  const setColor = (c) => doc.setTextColor(c[0], c[1], c[2]);
+  const setFill = (c) => doc.setFillColor(c[0], c[1], c[2]);
+
+  // --- Title block ---
+  setFill(PDF_COLORS.accent);
+  doc.rect(margin, y, 3, 8, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  setColor(PDF_COLORS.text);
+  doc.text("Product Quality Checklist", margin + 6, y + 7);
+  y += 13;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(13);
+  setColor(PDF_COLORS.muted);
+  const projectLines = doc.splitTextToSize(state.project, contentW);
+  doc.text(projectLines, margin, y);
+  y += projectLines.length * 6 + 4;
+
+  // --- Meta block ---
+  const counts = countStates();
+  const meta = [
+    ["PM", state.name],
+    ["Project", state.project],
+    ["Date", state.date],
+    ["Decision", state.decision],
+    [
+      "Items",
+      `${counts.ok} OK  ·  ${counts.deferred} deferred  ·  ${counts.notok} not OK  ·  ${counts.pending} pending`,
+    ],
+  ];
+  doc.setFontSize(10);
+  meta.forEach(([k, v]) => {
+    ensureSpace(7);
+    doc.setFont("helvetica", "bold");
+    setColor(PDF_COLORS.text);
+    doc.text(k, margin, y);
+    doc.setFont("helvetica", "normal");
+    setColor(PDF_COLORS.muted);
+    const lines = doc.splitTextToSize(v, contentW - 28);
+    doc.text(lines, margin + 26, y);
+    y += Math.max(6, lines.length * 5) + 1;
+  });
+
+  // Decision badge
+  ensureSpace(10);
+  y += 2;
+  const dec = state.decision;
+  const decColor = dec === "Accepted" ? PDF_COLORS.good
+    : dec === "Rejected" ? PDF_COLORS.danger
+    : PDF_COLORS.warn;
+  const decBg = dec === "Accepted" ? PDF_COLORS.goodBg
+    : dec === "Rejected" ? PDF_COLORS.dangerBg
+    : PDF_COLORS.warnBg;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  const decW = doc.getTextWidth(dec) + 8;
+  setFill(decBg);
+  doc.roundedRect(margin, y - 4.5, decW, 7, 1.5, 1.5, "F");
+  setColor(decColor);
+  doc.text(dec, margin + 4, y + 0.5);
+  y += 8;
+
+  // Known issues
+  if (state.knownIssues) {
+    ensureSpace(10);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    setColor(PDF_COLORS.text);
+    doc.text("Known issues accepted:", margin, y);
+    y += 4.5;
+    doc.setFont("helvetica", "normal");
+    setColor(PDF_COLORS.muted);
+    const kiLines = doc.splitTextToSize(state.knownIssues, contentW);
+    ensureSpace(kiLines.length * 4.5);
+    doc.text(kiLines, margin, y);
+    y += kiLines.length * 4.5 + 2;
+  }
+
+  // Separator
+  ensureSpace(6);
+  setFill(PDF_COLORS.border);
+  doc.rect(margin, y + 1, contentW, 0.3, "F");
+  y += 6;
+
+  // --- Sections ---
+  SECTIONS.forEach((section, sIdx) => {
+    const sState = state.sectionStates[sIdx];
+
+    ensureSpace(14);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    setColor(PDF_COLORS.accent);
+    doc.text(`${sIdx + 1}. ${section.title}`, margin, y);
+    y += 5;
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9.5);
+    setColor(PDF_COLORS.muted);
+    const objLines = doc.splitTextToSize(section.objective, contentW);
+    ensureSpace(objLines.length * 4.5 + 2);
+    doc.text(objLines, margin, y);
+    y += objLines.length * 4.5 + 3;
+
+    // Items
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    section.items.forEach((item, iIdx) => {
+      const st = sState.items[iIdx] || "pending";
+      const pill = PILL_FOR_STATE[st];
+      const pillW = 22;
+      const pillH = 5;
+      const textX = margin + pillW + 3;
+      const textW = contentW - pillW - 3;
+      const lines = doc.splitTextToSize(item, textW);
+      const blockH = Math.max(pillH, lines.length * 4.5);
+      ensureSpace(blockH + 2);
+
+      // Pill
+      setFill(pill.bg);
+      doc.roundedRect(margin, y - 3.5, pillW, pillH, 1.2, 1.2, "F");
+      setColor(pill.fg);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text(pill.label, margin + pillW / 2, y, { align: "center" });
+
+      // Item text
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      setColor(PDF_COLORS.text);
+      doc.text(lines, textX, y);
+
+      y += blockH + 1.5;
+    });
+
+    // Ship blocker
+    if (section.shipBlocker) {
+      y += 1;
+      const blockerText = `Ship blocker if: ${section.shipBlocker}`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const blLines = doc.splitTextToSize(blockerText, contentW - 6);
+      const blH = blLines.length * 4.2 + 4;
+      ensureSpace(blH + 2);
+      setFill(PDF_COLORS.dangerBg);
+      doc.rect(margin, y - 2, contentW, blH, "F");
+      setFill(PDF_COLORS.danger);
+      doc.rect(margin, y - 2, 1, blH, "F");
+      setColor(PDF_COLORS.danger);
+      doc.text(blLines, margin + 4, y + 2);
+      y += blH + 1;
+    }
+
+    // Notes
+    if (sState.notes) {
+      y += 2;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      setColor(PDF_COLORS.text);
+      ensureSpace(6);
+      doc.text("Notes:", margin, y);
+      y += 4;
+      doc.setFont("helvetica", "normal");
+      setColor(PDF_COLORS.muted);
+      const noteLines = doc.splitTextToSize(sState.notes, contentW);
+      ensureSpace(noteLines.length * 4.5);
+      doc.text(noteLines, margin, y);
+      y += noteLines.length * 4.5;
+    }
+
+    y += 6;
+  });
+
+  // --- Footer on each page ---
+  const total = doc.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    setColor(PDF_COLORS.muted);
+    doc.text(
+      `Commenda · Product Quality Checklist · ${state.date}`,
+      margin,
+      pageH - 8
+    );
+    doc.text(`Page ${p} of ${total}`, pageW - margin, pageH - 8, { align: "right" });
+  }
+
+  return doc;
+}
+
 // ---- Toolbar actions ----
 document.getElementById("btn-copy").addEventListener("click", async () => {
   try {
@@ -377,6 +605,21 @@ document.getElementById("btn-download").addEventListener("click", () => {
 
 document.getElementById("btn-print").addEventListener("click", () => {
   window.print();
+});
+
+document.getElementById("btn-pdf").addEventListener("click", () => {
+  if (!window.jspdf || !window.jspdf.jsPDF) {
+    toast("PDF library still loading — try again in a moment");
+    return;
+  }
+  try {
+    const doc = buildPDF();
+    const safeProject = state.project.replace(/[^a-z0-9\-_]+/gi, "-").replace(/^-+|-+$/g, "");
+    doc.save(`PQL-${safeProject}-${state.date}.pdf`);
+  } catch (e) {
+    console.error(e);
+    toast("Couldn't generate PDF — try Print instead");
+  }
 });
 
 document.getElementById("btn-new").addEventListener("click", () => {
